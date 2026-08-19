@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>12 Balls Sandbox</title>
 <style>
   :root {
@@ -25,6 +25,7 @@
     height: 100%;
     margin: 0;
     overflow: hidden;
+    touch-action: manipulation;   /* no double-tap zoom */
   }
 
   body {
@@ -628,6 +629,11 @@
 
   document.addEventListener("touchend", function () { endTouchDrag(true); });
   document.addEventListener("touchcancel", function () { endTouchDrag(false); });
+
+  // iOS Safari ignores user-scalable=no, so pinch is blocked here instead
+  ["gesturestart", "gesturechange", "gestureend"].forEach(function (name) {
+    document.addEventListener(name, function (e) { e.preventDefault(); }, { passive: false });
+  });
 
   function clearDropHints() {
     Array.prototype.forEach.call(
