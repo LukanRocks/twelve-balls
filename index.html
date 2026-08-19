@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 Balls Sandbox</title>
+<style>
+  :root {
+    --bg: #12151b;
+    --panel: #191d25;
+    --panel-2: #1f242e;
+    --line: #2c3340;
+    --line-soft: #232935;
+    --text: #e6e9ef;
+    --muted: #8b93a3;
+    --accent: #e0a94a;
+    --ball: #e9edf4;
+    --ball-text: #171b22;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  /* ---------- main column ---------- */
+
+  main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 18px 22px 22px;
+    gap: 18px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: nowrap;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  h1 {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin: 0;
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .counter, header button { flex: 0 0 auto; white-space: nowrap; }
+
+  .counter {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+    white-space: nowrap;
+  }
+
+  .counter b { color: var(--text); font-weight: 600; }
+
+  .spacer { flex: 1 1 auto; }
+
+  button {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, color 120ms;
+  }
+
+  button:hover:not(:disabled) { background: #262c38; border-color: #3a4354; }
+
+  button:disabled { opacity: 0.42; cursor: not-allowed; }
+
+  #measure {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #1a1408;
+    font-weight: 600;
+  }
+
+  #measure:hover:not(:disabled) { background: #eeb75a; border-color: #eeb75a; }
+
+  #measure:disabled { background: var(--panel-2); border-color: var(--line); color: var(--text); }
+
+  /* ---------- scale ---------- */
+
+  .scale {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-height: 92px;
+    max-height: 320px;
+  }
+
+  .pan {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    min-height: 92px;
+    padding: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+    position: relative;
+    transition: background 120ms, border-color 120ms;
+  }
+
+  .pan::after {
+    content: attr(data-label);
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4d5666;
+    pointer-events: none;
+  }
+
+  .pan.drop-hint {
+    background: #202a25;
+    border-color: var(--accent);
+  }
+
+  .center {
+    align-self: center;
+    width: 156px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .center #measure { width: 100%; }
+
+  .symbol {
+    text-align: center;
+    font-size: 40px;
+    line-height: 1;
+    font-weight: 300;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    user-select: none;
+  }
+
+  .symbol.neutral { color: #3d4553; font-size: 34px; }
+
+  /* ---------- neutral zone ---------- */
+
+  .zone-label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4d5666;
+    margin-bottom: -8px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-auto-rows: minmax(64px, 92px);
+    align-content: start;
+    gap: 10px;
+    flex: 0 0 auto;
+  }
+
+  .cell {
+    background: var(--panel);
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    transition: background 120ms, border-color 120ms;
+  }
+
+  .cell.filled { border-style: solid; }
+
+  .cell.drop-hint {
+    background: #202a25;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+
+  /* ---------- balls ---------- */
+
+  .ball {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffffff, var(--ball) 55%, #b9c1cf);
+    color: var(--ball-text);
+    font-size: 17px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+  }
+
+  .ball:active { cursor: grabbing; }
+
+  .ball.dragging { opacity: 0.3; }
+
+  /* touch dragging: keep normal scrolling available until a press is held */
+  .ball {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+  }
+
+  .ball-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 50;
+    pointer-events: none;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+    will-change: transform;
+  }
+
+  /* ---------- sidebar ---------- */
+
+  aside {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-left: 1px solid var(--line-soft);
+    background: #14181f;
+  }
+
+  .side-section {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 16px 18px;
+  }
+
+  .side-section + .side-section {
+    border-top: 1px solid var(--line-soft);
+    flex: 1 1 auto;
+  }
+
+  .side-head {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4d5666;
+    margin-bottom: 10px;
+  }
+
+  #log {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 30vh;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13.5px;
+    letter-spacing: 0.06em;
+  }
+
+  #log li {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 7px;
+    padding: 6px 10px;
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+
+  #log li:first-child { border-color: #3d4453; }
+
+  .empty-note { color: #4d5666; font-size: 13px; font-style: italic; }
+
+  textarea {
+    flex: 1 1 auto;
+    min-height: 0;
+    resize: none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 10px 12px;
+  }
+
+  textarea:focus { outline: none; border-color: #3f4a5c; }
+
+  textarea::placeholder { color: #4d5666; }
+
+  @media (max-width: 900px) {
+    html, body { overflow: auto; height: auto; min-height: 100%; }
+    body { grid-template-columns: 1fr; }
+    aside { min-height: 0; border-left: none; border-top: 1px solid var(--line-soft); }
+    .scale { max-height: none; grid-template-columns: 1fr 1fr; }
+    #pan-left { grid-column: 1; grid-row: 1; }
+    #pan-right { grid-column: 2; grid-row: 1; }
+    .center {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      width: auto;
+      flex-direction: row;
+      justify-content: center;
+      gap: 14px;
+    }
+    .center #measure { width: auto; }
+    .grid { grid-template-columns: repeat(4, 1fr); }
+    textarea { min-height: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <h1>12 Balls Sandbox</h1>
+    <div class="counter" title="Weighings used"><b id="count">0</b>/3</div>
+    <div class="spacer"></div>
+    <button id="reset">Start over</button>
+  </header>
+
+  <section class="scale">
+    <div class="pan" id="pan-left" data-zone="left" data-label="left"></div>
+    <div class="center">
+      <div class="symbol neutral" id="symbol">⚖</div>
+      <button id="measure" disabled>Measure</button>
+    </div>
+    <div class="pan" id="pan-right" data-zone="right" data-label="right"></div>
+  </section>
+
+  <div class="zone-label">Neutral zone</div>
+  <section class="grid" id="grid"></section>
+</main>
+
+<aside>
+  <div class="side-section">
+    <div class="side-head">Move log</div>
+    <ul id="log"></ul>
+    <div class="empty-note" id="log-empty">No weighings yet.</div>
+  </div>
+  <div class="side-section">
+    <div class="side-head">Notes</div>
+    <textarea id="notes" placeholder="Scratch space — saved in this browser, kept across games and reloads." spellcheck="false"></textarea>
+  </div>
+</aside>
+
+<script>
+(function () {
+  "use strict";
+
+  var LETTERS = "ABCDEFGHIJKL".split("");
+  var GRID_SIZE = 16;
+  var MAX_WEIGHINGS = 3;
+  var NOTES_KEY = "12balls-notes";
+  var NEUTRAL_SYMBOL = "⚖";
+  var TOUCH_HOLD_MS = 180;      // hold this long before a touch becomes a drag
+  var TOUCH_SLOP_PX = 10;       // move further than this first and it stays a scroll
+  var RESET_PROMPT = "Start over?\n\nThis begins a new game and clears the scale, the move log and the counter. Your notes are kept.";
+
+  // --- state -------------------------------------------------------------
+
+  var oddIndex, oddWeight;      // hidden; never written to the DOM
+  var grid, leftPan, rightPan;
+  var measurements, locked, log;
+  var dragged = null;
+  var touch = null;             // in-flight touch drag, if any
+
+  var el = {
+    grid: document.getElementById("grid"),
+    left: document.getElementById("pan-left"),
+    right: document.getElementById("pan-right"),
+    symbol: document.getElementById("symbol"),
+    count: document.getElementById("count"),
+    measure: document.getElementById("measure"),
+    reset: document.getElementById("reset"),
+    log: document.getElementById("log"),
+    logEmpty: document.getElementById("log-empty"),
+    notes: document.getElementById("notes")
+  };
+
+  function weightOf(letter) {
+    var index = letter.charCodeAt(0) - 65;
+    return index === oddIndex ? oddWeight : 2;
+  }
+
+  function newGame() {
+    oddIndex = Math.floor(Math.random() * 12);
+    oddWeight = Math.random() < 0.5 ? 1 : 3;
+
+    grid = new Array(GRID_SIZE).fill(null);
+    LETTERS.forEach(function (letter, i) { grid[i] = letter; });
+
+    leftPan = [];
+    rightPan = [];
+    measurements = 0;
+    locked = false;
+    log = [];
+    dragged = null;
+  }
+
+  // --- location helpers --------------------------------------------------
+
+  function panFor(zone) {
+    return zone === "left" ? leftPan : rightPan;
+  }
+
+  function locate(letter) {
+    var i = grid.indexOf(letter);
+    if (i !== -1) return { zone: "grid", index: i };
+    i = leftPan.indexOf(letter);
+    if (i !== -1) return { zone: "left", index: i };
+    i = rightPan.indexOf(letter);
+    if (i !== -1) return { zone: "right", index: i };
+    return null;
+  }
+
+  function removeFrom(loc) {
+    if (!loc) return;
+    if (loc.zone === "grid") grid[loc.index] = null;
+    else panFor(loc.zone).splice(loc.index, 1);
+  }
+
+  function placeAt(loc, letter) {
+    if (!loc) return;
+    if (loc.zone === "grid") grid[loc.index] = letter;
+    else panFor(loc.zone).splice(loc.index, 0, letter);
+  }
+
+  // --- moves -------------------------------------------------------------
+
+  function dropOnCell(letter, cellIndex) {
+    var from = locate(letter);
+    if (!from) return;
+    if (from.zone === "grid" && from.index === cellIndex) return;
+
+    var occupant = grid[cellIndex];
+    removeFrom(from);
+    if (occupant) placeAt(from, occupant);   // occupant takes the dragged ball's old spot
+    grid[cellIndex] = letter;
+  }
+
+  function dropOnPan(letter, zone) {
+    var from = locate(letter);
+    if (!from) return;
+    removeFrom(from);
+    panFor(zone).push(letter);               // pans are ordered; drops append
+  }
+
+  // --- measuring ---------------------------------------------------------
+
+  function sum(pan) {
+    return pan.reduce(function (total, letter) { return total + weightOf(letter); }, 0);
+  }
+
+  function canMeasure() {
+    return !locked && leftPan.length > 0 && leftPan.length === rightPan.length;
+  }
+
+  function measure() {
+    if (!canMeasure()) return;
+
+    var l = sum(leftPan);
+    var r = sum(rightPan);
+    var symbol = l > r ? ">" : (l < r ? "<" : "=");
+
+    el.symbol.textContent = symbol;
+    el.symbol.classList.remove("neutral");
+
+    log.unshift(leftPan.join(" ") + " " + symbol + " " + rightPan.join(" "));
+
+    measurements += 1;
+    if (measurements >= MAX_WEIGHINGS) locked = true;
+
+    render();
+  }
+
+  // --- rendering ---------------------------------------------------------
+
+  function makeBall(letter) {
+    var b = document.createElement("div");
+    b.className = "ball";
+    b.textContent = letter;
+    b.draggable = true;
+    b.addEventListener("dragstart", function (e) {
+      dragged = letter;
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", letter); } catch (err) {}
+      requestAnimationFrame(function () { b.classList.add("dragging"); });
+    });
+    b.addEventListener("dragend", function () {
+      dragged = null;
+      b.classList.remove("dragging");
+      clearDropHints();
+    });
+    b.addEventListener("touchstart", function (e) {
+      if (touch || e.touches.length !== 1) return;
+      var t = e.touches[0];
+      touch = {
+        letter: letter, source: b, active: false,
+        x: t.clientX, y: t.clientY, startX: t.clientX, startY: t.clientY,
+        timer: window.setTimeout(beginTouchDrag, TOUCH_HOLD_MS)
+      };
+    }, { passive: true });
+    return b;
+  }
+
+  // --- touch dragging ----------------------------------------------------
+  // Mouse uses native HTML5 DnD, which never fires on touch. Here a brief
+  // hold starts a drag; a swipe that moves first is left alone so the page
+  // scrolls the way it normally would.
+
+  function beginTouchDrag() {
+    if (!touch || touch.active) return;
+    touch.active = true;
+    touch.source.classList.add("dragging");
+
+    var ghost = document.createElement("div");
+    ghost.className = "ball ball-ghost";
+    ghost.textContent = touch.letter;
+    document.body.appendChild(ghost);
+    touch.ghost = ghost;
+
+    moveGhost();
+    highlightUnder(touch.x, touch.y);
+  }
+
+  function moveGhost() {
+    if (!touch || !touch.ghost) return;
+    touch.ghost.style.transform =
+      "translate(" + (touch.x - 21) + "px," + (touch.y - 21) + "px) scale(1.18)";
+  }
+
+  function targetUnder(x, y) {
+    var node = document.elementFromPoint(x, y);
+    return node ? node.closest(".cell, .pan") : null;
+  }
+
+  function highlightUnder(x, y) {
+    var node = targetUnder(x, y);
+    if (node && node.classList.contains("drop-hint")) return;
+    clearDropHints();
+    if (node) node.classList.add("drop-hint");
+  }
+
+  function endTouchDrag(dropIt) {
+    if (!touch) return;
+    window.clearTimeout(touch.timer);
+
+    if (touch.active) {
+      if (touch.ghost) touch.ghost.remove();
+      touch.source.classList.remove("dragging");
+      var node = dropIt ? targetUnder(touch.x, touch.y) : null;
+      if (node) {
+        if (node.classList.contains("pan")) dropOnPan(touch.letter, node.dataset.zone);
+        else dropOnCell(touch.letter, Array.prototype.indexOf.call(el.grid.children, node));
+      }
+      touch = null;
+      clearDropHints();
+      render();
+      return;
+    }
+    touch = null;
+  }
+
+  document.addEventListener("touchmove", function (e) {
+    if (!touch) return;
+    var t = e.touches[0];
+    touch.x = t.clientX;
+    touch.y = t.clientY;
+
+    if (!touch.active) {
+      var dx = t.clientX - touch.startX, dy = t.clientY - touch.startY;
+      // moved before the hold elapsed — treat it as a scroll, not a drag
+      if (dx * dx + dy * dy > TOUCH_SLOP_PX * TOUCH_SLOP_PX) endTouchDrag(false);
+      return;
+    }
+
+    e.preventDefault();          // now it is a drag, so don't scroll the page
+    moveGhost();
+    highlightUnder(t.clientX, t.clientY);
+  }, { passive: false });
+
+  document.addEventListener("touchend", function () { endTouchDrag(true); });
+  document.addEventListener("touchcancel", function () { endTouchDrag(false); });
+
+  function clearDropHints() {
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".drop-hint"),
+      function (n) { n.classList.remove("drop-hint"); }
+    );
+  }
+
+  function letterFrom(e) {
+    var letter = dragged;
+    if (!letter) {
+      try { letter = e.dataTransfer.getData("text/plain"); } catch (err) {}
+    }
+    return LETTERS.indexOf(letter) === -1 ? null : letter;
+  }
+
+  function wireDropTarget(node, onDrop) {
+    node.addEventListener("dragover", function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      node.classList.add("drop-hint");
+    });
+    node.addEventListener("dragleave", function (e) {
+      if (!node.contains(e.relatedTarget)) node.classList.remove("drop-hint");
+    });
+    node.addEventListener("drop", function (e) {
+      e.preventDefault();
+      node.classList.remove("drop-hint");
+      var letter = letterFrom(e);
+      if (!letter) return;
+      onDrop(letter);
+      dragged = null;
+      render();
+    });
+  }
+
+  function buildGrid() {
+    el.grid.innerHTML = "";
+    for (var i = 0; i < GRID_SIZE; i++) {
+      var cell = document.createElement("div");
+      cell.className = "cell";
+      el.grid.appendChild(cell);
+      wireDropTarget(cell, (function (index) {
+        return function (letter) { dropOnCell(letter, index); };
+      })(i));
+    }
+  }
+
+  function renderGrid() {
+    var cells = el.grid.children;
+    for (var i = 0; i < GRID_SIZE; i++) {
+      var cell = cells[i];
+      cell.innerHTML = "";
+      if (grid[i]) {
+        cell.classList.add("filled");
+        cell.appendChild(makeBall(grid[i]));
+      } else {
+        cell.classList.remove("filled");
+      }
+    }
+  }
+
+  function renderPan(node, pan) {
+    node.innerHTML = "";
+    pan.forEach(function (letter) { node.appendChild(makeBall(letter)); });
+  }
+
+  function renderLog() {
+    el.log.innerHTML = "";
+    log.forEach(function (line) {
+      var li = document.createElement("li");
+      li.textContent = line;
+      el.log.appendChild(li);
+    });
+    el.logEmpty.style.display = log.length ? "none" : "block";
+  }
+
+  function renderControls() {
+    el.count.textContent = String(measurements);
+    el.measure.disabled = !canMeasure();
+  }
+
+  function render() {
+    renderGrid();
+    renderPan(el.left, leftPan);
+    renderPan(el.right, rightPan);
+    renderLog();
+    renderControls();
+  }
+
+  function resetSymbol() {
+    el.symbol.textContent = NEUTRAL_SYMBOL;
+    el.symbol.classList.add("neutral");
+  }
+
+  function startOver() {
+    newGame();
+    resetSymbol();
+    render();                                 // notes are deliberately untouched
+  }
+
+  // --- notes -------------------------------------------------------------
+
+  function initNotes() {
+    var saved = null;
+    try { saved = localStorage.getItem(NOTES_KEY); } catch (err) {}
+    if (saved !== null) el.notes.value = saved;
+    el.notes.addEventListener("input", function () {
+      try { localStorage.setItem(NOTES_KEY, el.notes.value); } catch (err) {}
+    });
+  }
+
+  // --- boot --------------------------------------------------------------
+
+  buildGrid();
+  wireDropTarget(el.left, function (letter) { dropOnPan(letter, "left"); });
+  wireDropTarget(el.right, function (letter) { dropOnPan(letter, "right"); });
+
+  el.measure.addEventListener("click", measure);
+  el.reset.addEventListener("click", function () {
+    if (window.confirm(RESET_PROMPT)) startOver();
+  });
+  document.addEventListener("dragend", clearDropHints);
+
+  initNotes();
+  startOver();
+})();
+</script>
+</body>
+</html>
