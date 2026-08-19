@@ -307,7 +307,9 @@
     overflow-x: auto;
   }
 
-  #log li:first-child { border-color: #3d4453; }
+  #log li:last-child { border-color: #3d4453; }
+
+  .log-n { color: var(--muted); }
 
   .empty-note { color: #4d5666; font-size: 13px; font-style: italic; }
 
@@ -346,7 +348,8 @@
     }
     .center #measure { width: auto; }
     .grid { grid-template-columns: repeat(4, 1fr); }
-    textarea { min-height: 160px; }
+    /* 16px keeps iOS Safari from zooming in when the field takes focus */
+    textarea { min-height: 160px; font-size: 16px; }
   }
 </style>
 </head>
@@ -478,6 +481,7 @@
     removeFrom(from);
     if (occupant) placeAt(from, occupant);   // occupant takes the dragged ball's old spot
     grid[cellIndex] = letter;
+    if (from.zone !== "grid") resetSymbol();  // a pan lost a ball: last result no longer applies
   }
 
   function dropOnPan(letter, zone) {
@@ -485,6 +489,7 @@
     if (!from) return;
     removeFrom(from);
     panFor(zone).push(letter);               // pans are ordered; drops append
+    resetSymbol();
   }
 
   // --- measuring ---------------------------------------------------------
@@ -507,7 +512,7 @@
     el.symbol.textContent = symbol;
     el.symbol.classList.remove("neutral");
 
-    log.unshift(leftPan.join(" ") + " " + symbol + " " + rightPan.join(" "));
+    log.push(leftPan.join(" ") + " " + symbol + " " + rightPan.join(" "));
 
     measurements += 1;
     if (measurements >= MAX_WEIGHINGS) locked = true;
@@ -692,12 +697,17 @@
 
   function renderLog() {
     el.log.innerHTML = "";
-    log.forEach(function (line) {
+    log.forEach(function (line, i) {                // oldest first, top to bottom
       var li = document.createElement("li");
-      li.textContent = line;
+      var n = document.createElement("span");
+      n.className = "log-n";
+      n.textContent = (i + 1) + ".";
+      li.appendChild(n);
+      li.appendChild(document.createTextNode(" " + line));
       el.log.appendChild(li);
     });
     el.logEmpty.style.display = log.length ? "none" : "block";
+    el.log.scrollTop = el.log.scrollHeight;         // keep the newest in view
   }
 
   function renderControls() {
